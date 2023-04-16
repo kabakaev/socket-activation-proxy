@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os/exec"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -71,10 +72,14 @@ func startBackend(wg *sync.WaitGroup, backendCommand *string, backendIsRunning *
 	}
 
 	go func(wg *sync.WaitGroup, backendIsRunning *sync.Mutex) {
+		// See https://github.com/golang/go/issues/27505
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
 		ctx, cancel := context.WithCancel(context.Background())
 		cmd := exec.CommandContext(ctx, *backendCommand)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
+			Pdeathsig: syscall.SIGTERM,
 		}
 		// Retry to start the backend process.
 		for {
